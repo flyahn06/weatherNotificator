@@ -1,3 +1,5 @@
+# TODO: 현재 날씨 요청과 일기예보 요청 
+
 import requests
 import base64
 import json
