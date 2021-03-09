@@ -16,8 +16,9 @@ class APIRequestError(Exception):
     __module__ = Exception.__module__
 
 
-def generateRequest(**data):
-    res = requests.request("GET", url, params=query, data=json.dumps(data))
+def generateRequest(region='Anyang-si,KR'):
+    query['q'] = region
+    res = requests.request("GET", url, params=query)
     respond = json.loads(res.text)
 
     if str(res.status_code).startswith("4"):
