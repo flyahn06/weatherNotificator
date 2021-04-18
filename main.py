@@ -2,6 +2,7 @@ import weather_getter
 import win10toast
 from time import sleep
 import pprint
+import subprocess
 
 code, current_weather = weather_getter.generateRequest()
 
@@ -9,6 +10,7 @@ pprint.pprint(current_weather)
 
 def clicked():
     print("Clicked!")
+    subprocess.run("python mainwindow.py")
 
 
 toaster = win10toast.ToastNotifier()
