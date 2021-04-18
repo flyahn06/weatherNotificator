@@ -1,6 +1,60 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5 import QtWidgets, QtGui, QtCore
+
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QThread
+import weather_getter
 import sys
+
+import glob
+import random
+import time
+
+class WeatherFetchWorker(QThread):
+    sender = pyqtSignal(dict)
+    finisher = pyqtSignal()
+
+    def __init__(self, loc):
+        super().__init__()
+        self.loc = loc
+
+    def run(self):
+        code, current_weather = weather_getter.generateRequest()
+
+        result = {
+            "wd": current_weather["weather"][0]["description"],
+            "ct": current_weather["main"]["temp"],
+            "ip": f'sources\\image\\{current_weather["weather"][0]["icon"]}.png',
+            "ch": current_weather['main']['humidity'],
+            'cw': (current_weather['wind']['speed'], current_weather['wind']['deg']),
+            'maxt': current_weather['main']['temp_max'],
+            'mint': current_weather['main']['temp_min']
+        }
+        self.sleep(random.randint(1, 3))
+        self.finisher.emit()
+        self.sleep(1)
+        self.sender.emit(result)
+
+class MainWinowIconChanger(QThread):
+    def __init__(self, windowInstance):
+        super().__init__()
+        self.running = True
+        self.icolist = glob.glob("sources\\image\\*.png")
+        self.windowInstance = windowInstance
+
+    def run(self):
+        while self.running:
+            for ico in self.icolist:
+                print(self.icolist)
+                self.windowInstance.setWindowIcon(QtGui.QIcon(ico))
+                self.windowInstance.mainPictureLabel.setPixmap(QtGui.QPixmap(ico))
+                self.msleep(random.randint(1, 100))
+
+    def finish(self):
+        self.running = False
+
+class Sleeper(QThread):
+    def run(self):
+        self.msleep(100)
 
 
 class Ui_MainWindow(QMainWindow):
@@ -96,13 +150,42 @@ class Ui_MainWindow(QMainWindow):
 
     def retranslateUi(self):
         _translate = QtCore.QCoreApplication.translate
-        self.setWindowTitle("현재 날씨 - 대체로 맑음")
+        self.setWindowTitle("현재 날씨 - 날씨 정보를 가져오는 중입니다")
         self.mainPictureLabel.setText("사진이 들어갈 자리")
-        self.mainWeatherDesLabel.setText("대체로 맑음")
-        self.mainTempLabel.setText("10°C")
-        self.mainAdditionalInfoLabel.setText("습도 80%\n바람 0.3 km/h @ 20")
-        self.mainHiLowTempLabel.setText("7°C / 19°C")
+        self.mainWeatherDesLabel.setText("날씨 정보를 가져오는 중입니다")
+        self.mainTempLabel.setText("날씨 정보를 가져오는 중입니다")
+        self.mainAdditionalInfoLabel.setText("날씨 정보를 가져오는 중입니다")
+        self.mainHiLowTempLabel.setText("날씨 정보를 가져오는 중입니다")
+        self.initialize()
 
+    def initialize(self):
+        self.setEnabled(False)
+
+        worker = WeatherFetchWorker('Anyang-si,KR')
+        worker.sender.connect(self.displayWeather)
+        worker.finisher.connect(self.finishChanger)
+        worker.start()
+
+        self.changeWorker = MainWinowIconChanger(self)
+        self.changeWorker.start()
+
+    @pyqtSlot(dict)
+    def displayWeather(self, res):
+        print(res)
+
+        self.setWindowTitle("현재 날씨 - {}".format(res['wd']))
+        self.mainPictureLabel.setPixmap(QtGui.QPixmap(res['ip']))
+        self.mainWeatherDesLabel.setText(res['wd'])
+        self.mainTempLabel.setText("{}°C".format(res['ct']))
+        self.mainAdditionalInfoLabel.setText("습도 {}%\n바람 {} km/h @ {}".format(res['ch'], res['cw'][0], res['cw'][1]))
+        self.mainHiLowTempLabel.setText("{}°C / {}°C".format(res['maxt'], res['mint']))
+        self.setWindowIcon(QtGui.QIcon(res['ip']))
+
+        self.setEnabled(True)
+
+    @pyqtSlot()
+    def finishChanger(self):
+        self.changeWorker.finish()
 
 app = QApplication(sys.argv)
 w = Ui_MainWindow()
